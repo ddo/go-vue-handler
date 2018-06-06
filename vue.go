@@ -11,10 +11,10 @@ func Handler(publicDir string) http.Handler {
 	handler := http.FileServer(http.Dir(publicDir))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		url := req.URL.String()
+		_path := req.URL.Path
 
 		// static files
-		if strings.Contains(url, ".") || url == "/" {
+		if strings.Contains(_path, ".") || _path == "/" {
 			handler.ServeHTTP(w, req)
 			return
 		}
