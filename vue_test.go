@@ -22,25 +22,31 @@ func readFile(t *testing.T, filename string) []byte {
 func TestHandler(t *testing.T) {
 	indexhtml := readFile(t, "index.html")
 	appjs := readFile(t, "js/app.js")
+	notfound := []byte("404 page not found\n")
 
 	tests := []struct {
-		name     string
-		path     string
-		wantCode int
-		wantBody []byte
+		name         string
+		path         string
+		acceptHeader string
+		wantCode     int
+		wantBody     []byte
 	}{
-		{"root", "/", http.StatusOK, indexhtml},
-		{"index.html", "/index.html", http.StatusMovedPermanently, nil},
-		{"js/app.js", "/js/app.js", http.StatusOK, appjs},
-		{"foo", "/foo", http.StatusOK, indexhtml},
-		{"bar", "/bar", http.StatusOK, indexhtml},
-		{"foo.bar", "/foo.bar", http.StatusOK, indexhtml},
+		{"root", "/", html5mime, http.StatusOK, indexhtml},
+		{"index.html", "/index.html", html5mime, http.StatusMovedPermanently, nil},
+		{"js/app.js", "/js/app.js", "", http.StatusOK, appjs},
+		{"foo", "/foo", html5mime, http.StatusOK, indexhtml},
+		{"bar", "/bar", html5mime, http.StatusOK, indexhtml},
+		{"foo.bar", "/foo.bar", html5mime, http.StatusOK, indexhtml},
+		{"missing.js", "/missing.js", "", http.StatusNotFound, notfound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req, err := http.NewRequest("GET", tt.path, nil)
 			if err != nil {
 				t.Fatal(err)
+			}
+			if tt.acceptHeader != "" {
+				req.Header["Accept"] = []string{tt.acceptHeader}
 			}
 
 			rr := httptest.NewRecorder()
