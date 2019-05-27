@@ -11,7 +11,6 @@ go get -u github.com/ddo/go-vue-handler
 
 * build vue app to get ``index.html`` and ``dist`` folder
 * serve it as a static folder with go server
-* all the static files must has extension
 
 ## example
 
@@ -46,4 +45,21 @@ func main() {
 	err := server.ListenAndServe()
 	panic(err)
 }
+```
+
+## caveat
+
+https://router.vuejs.org/guide/essentials/history-mode.html#caveat
+
+> Your server will no longer report 404 errors as all not-found paths now serve up your `index.html`
+file. To get around the issue, you should implement a catch-all route within your Vue app to show a
+404 page:
+
+```js
+const router = new VueRouter({
+  mode: 'history',
+  routes: [
+    { path: '*', component: NotFoundComponent }
+  ]
+})
 ```
