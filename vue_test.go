@@ -2,6 +2,7 @@ package vue
 
 import (
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -28,16 +29,17 @@ func TestHandler(t *testing.T) {
 		name         string
 		path         string
 		acceptHeader string
+		wantCType    string
 		wantCode     int
 		wantBody     []byte
 	}{
-		{"root", "/", html5mime, http.StatusOK, indexhtml},
-		{"index.html", "/index.html", html5mime, http.StatusMovedPermanently, nil},
-		{"js/app.js", "/js/app.js", "", http.StatusOK, appjs},
-		{"foo", "/foo", html5mime, http.StatusOK, indexhtml},
-		{"bar", "/bar", html5mime, http.StatusOK, indexhtml},
-		{"foo.bar", "/foo.bar", html5mime, http.StatusOK, indexhtml},
-		{"missing.js", "/missing.js", "", http.StatusNotFound, notfound},
+		{"root", "/", html5mime, html5mime, http.StatusOK, indexhtml},
+		{"index.html", "/index.html", html5mime, "", http.StatusMovedPermanently, nil},
+		{"js/app.js", "/js/app.js", "", "application/javascript", http.StatusOK, appjs},
+		{"foo", "/foo", html5mime, html5mime, http.StatusOK, indexhtml},
+		{"bar", "/bar", html5mime, html5mime, http.StatusOK, indexhtml},
+		{"foo.bar", "/foo.bar", html5mime, html5mime, http.StatusOK, indexhtml},
+		{"missing.js", "/missing.js", "", "text/plain", http.StatusNotFound, notfound},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -56,6 +58,16 @@ func TestHandler(t *testing.T) {
 			if rr.Code != tt.wantCode {
 				t.Errorf("handler returned wrong status code: got %v want %v",
 					rr.Code, tt.wantCode)
+			}
+
+			gotCType, _, err := mime.ParseMediaType(rr.Header().Get("Content-Type"))
+			if gotCType != "" && err != nil {
+				t.Errorf("handler returned wrong content type: %v", err)
+			}
+
+			if gotCType != tt.wantCType {
+				t.Errorf("handler returned wrong content type: got %v want %v",
+					gotCType, tt.wantCType)
 			}
 
 			if got := rr.Body.Bytes(); !reflect.DeepEqual(got, tt.wantBody) {

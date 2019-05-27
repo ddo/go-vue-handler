@@ -15,12 +15,18 @@ const html5mime = "text/html"
 // do not send the response to the client, however save it into an internal buffer.
 type statusInterceptor struct {
 	http.ResponseWriter
-	status int
-	body   bytes.Buffer
+	status  int
+	headers http.Header
+	body    bytes.Buffer
 }
 
 func (w *statusInterceptor) Write(p []byte) (int, error) {
 	if w.status == http.StatusNotFound {
+		m := w.Header()
+		for k, v := range m {
+			w.headers[k] = v
+			delete(m, k)
+		}
 		w.body.Write(p)
 		return 0, nil
 	}
@@ -32,6 +38,18 @@ func (w *statusInterceptor) WriteHeader(code int) {
 		w.ResponseWriter.WriteHeader(code)
 	}
 	w.status = code
+}
+
+// Flush writes the data from internal buffers to original ResponseWriter.
+func (w *statusInterceptor) Flush(code int) {
+	m := w.Header()
+	for k, v := range w.headers {
+		m[k] = v
+		delete(w.headers, k)
+	}
+	w.ResponseWriter.WriteHeader(code)
+	w.ResponseWriter.Write(w.body.Bytes())
+	w.body.Reset()
 }
 
 // matchAcceptHeader implements basic mime type matching for HTTP Accept header.
@@ -56,7 +74,10 @@ func Handler(publicDir string) http.Handler {
 	handler := http.FileServer(http.Dir(publicDir))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		interceptor := &statusInterceptor{ResponseWriter: w}
+		interceptor := &statusInterceptor{
+			ResponseWriter: w,
+			headers:        make(http.Header),
+		}
 		handler.ServeHTTP(interceptor, req)
 		if interceptor.status == http.StatusNotFound {
 			accept := req.Header.Get("Accept")
@@ -64,8 +85,7 @@ func Handler(publicDir string) http.Handler {
 				w.WriteHeader(http.StatusOK)
 				http.ServeFile(w, req, path.Join(publicDir, "index.html"))
 			} else {
-				w.WriteHeader(http.StatusNotFound)
-				w.Write(interceptor.body.Bytes())
+				interceptor.Flush(http.StatusNotFound)
 			}
 		}
 	})
