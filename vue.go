@@ -82,7 +82,6 @@ func Handler(publicDir string) http.Handler {
 		if interceptor.status == http.StatusNotFound {
 			accept := req.Header.Get("Accept")
 			if matchAcceptHeader(html5mime, accept) {
-				w.WriteHeader(http.StatusOK)
 				http.ServeFile(w, req, path.Join(publicDir, "index.html"))
 			} else {
 				interceptor.Flush(http.StatusNotFound)
